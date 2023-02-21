@@ -1,0 +1,67 @@
+# 所定の項目に変数の値をセットし、MFGの売上予実対比表を出力する。
+# 共通変数を設定する。
+Variables.CreateNewList List=> C_SaveFilePathList
+DateTime.GetCurrentDateTime.Local DateTimeFormat: DateTime.DateTimeFormat.DateAndTime CurrentDateTime=> CurrentDateTime
+Text.ConvertDateTimeToText.FromCustomDateTime DateTime: CurrentDateTime CustomFormat: $'''MMM''' Result=> C_CurrentMonth
+Text.ConvertDateTimeToText.FromCustomDateTime DateTime: CurrentDateTime CustomFormat: $'''dd''' Result=> C_CurrentDay
+@@flowname: '共通_期取得関数'
+External.RunFlow FlowId: 'a92c0819-5934-4b51-92bc-238361fe61dc' @addDay: $'''BLANK''' @Date: $'''BLANK''' @half=> C_Half @period=> C_Period
+SET C_SaveFilePathPrefix TO $'''U:\\20_業務\\010_建材業務\\000_建材業務共通\\分析データ\\%C_Period%期\\%C_CurrentMonth%月'''
+/# 「U:\\20_業務\\010_建材業務\\000_建材業務共通\\分析データ\\%C_Period%期\\%C_CurrentMonth%月」フォルダの存在を確認する。
+保存先フォルダが存在しない場合、フォルダを作成する。#/
+IF (Folder.IfFolderExists.DoesNotExist Path: C_SaveFilePathPrefix) THEN
+    Folder.Create FolderPath: $'''U:\\20_業務\\010_建材業務\\000_建材業務共通\\分析データ\\%C_Period%期''' FolderName: $'''%C_CurrentMonth%月'''
+END
+@@flowname: '共通_MFGログイン'
+External.RunFlow FlowId: 'f97db987-beeb-4804-a193-010791ee7d34' @password: $'''abcd1234''' @userId: $'''unixuser'''
+MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''29.8.1{Return}''' DelayBetweenKeystrokes: 200 SendTextAsHardwareKeys: False
+    ON ERROR
+        SET C_ErrorText TO $'''売上予算実績対比表の起動に失敗しました。'''
+        GOTO ExceptionError
+    END
+# 全体日報データの作成。
+SET C_CostcenterFrom TO 1010
+SET C_CostcenterTo TO 1055
+SET C_ProdgrpFrom TO $'''A101'''
+SET C_ProdgrpTo TO $'''B007'''
+SET C_Output1 TO 4
+SET C_Output2 TO 3
+SET C_SaveFolderName TO $'''全体'''
+SET C_FileName TO $'''%C_Period%期%C_CurrentMonth%月%C_CurrentDay%日出力全体日報'''
+CALL OutputUriageyojitsuMFGProcess
+IF C_ErrorText <> $'''-''' THEN
+    GOTO ExceptionError
+END
+# 営業所別日報データの作成。
+SET C_Output2 TO 2
+SET C_FileName TO $'''%C_Period%期%C_CurrentMonth%月%C_CurrentDay%日出力営業所別日報'''
+SET C_SaveFolderName TO $'''営業所別'''
+CALL OutputUriageyojitsuMFGProcess
+IF C_ErrorText <> $'''-''' THEN
+    GOTO ExceptionError
+END
+# 有償支給日報データの作成。
+SET C_CostcenterFrom TO 1054
+SET C_Output2 TO 1
+SET C_FileName TO $'''%C_Period%期%C_CurrentMonth%月%C_CurrentDay%日出力有償支給日報'''
+SET C_SaveFolderName TO $'''有償支給'''
+CALL OutputUriageyojitsuMFGProcess
+IF C_ErrorText <> $'''-''' THEN
+    GOTO ExceptionError
+END
+# 営業所別製品別日報データの作成。
+SET C_CostcenterFrom TO 1010
+SET C_CostcenterTo TO 1056
+SET C_FileName TO $'''%C_Period%期%C_CurrentMonth%月%C_CurrentDay%日出力営業所別製品別日報'''
+SET C_SaveFolderName TO $'''営業所別詳細'''
+CALL OutputUriageyojitsuMFGProcess
+IF C_ErrorText <> $'''-''' THEN
+    GOTO ExceptionError
+END
+LABEL ExceptionError
+Scripting.RunPowershellScript Script: $'''taskkill /im qad.Client.exe
+'''
+    ON ERROR
+
+    END
+EXIT FUNCTION

@@ -1,0 +1,48 @@
+# MFGから異なる条件で4回売上予算実績表を出力し、それぞれ異なるファイル名で所定のフォルダに保存する。
+@@flowname: '共通_MFG休日判定関数'
+External.RunFlow FlowId: '4dde5196-0d81-41de-b714-7b8b36692264' @operationValue=> OperationValue
+IF OperationValue = 1 THEN
+    /# MFG休日判定関数で休日と判定された場合、メール配信は行わない。
+EndProcessラベルに移動する。#/
+    GOTO EndProcess
+ELSE
+    GOTO MainProcess
+END
+SET LoopIndex TO 0
+LABEL MainProcess
+SET C_ErrorText TO $'''-'''
+/# MFGから出力するファイルは一時フォルダに保存し、その後出力フォルダへPowerAutomateのファイルコピーアクションでコピーする。
+MFGでファイル出力する際に直接出力フォルダに保存した場合、ファイルの上書きチェックの制御が必要となるため、一時フォルダを経由する。#/
+CALL FilesDelete
+IF C_ErrorText <> $'''-''' THEN
+    GOTO ExceptionError
+END
+CALL OutputUriageyojitsu
+IF C_ErrorText <> $'''-''' THEN
+    GOTO ExceptionError
+END
+SET MailBody TO $'''MFG分析データの取得に成功しました。
+下記のフォルダに保存しました。
+
+%C_SaveFilePathList%'''
+@@flowname: '共通_メール送信関数'
+External.RunFlow FlowId: 'cc5e23e9-1535-4f64-94bf-5da7f5ca5112' @displayName: $'''システムG''' @destination: $'''ykagoura@carbide.co.jp''' @CC: $'''vsystems@carbide.co.jp;khasegawa@carbide.co.jp''' @BCC: $'''''' @subject: $'''MFG分析データ取得　実行結果''' @body: MailBody @filePath: $'''''' @sender: $''''''
+ON ERROR
+    GOTO ExceptionError
+END
+GOTO EndProcess
+LABEL ExceptionError
+ERROR => LastError
+SET MailBody TO $'''MFG分析データの取得に失敗しました。
+
+エラー内容=%C_ErrorText%
+エラー詳細=%LastError%'''
+@@flowname: '共通_メール送信関数'
+External.RunFlow FlowId: 'cc5e23e9-1535-4f64-94bf-5da7f5ca5112' @displayName: $'''システムG''' @destination: $'''vfgyoumu@vinyframe.co.jp''' @CC: $'''vsystems@carbide.co.jp''' @BCC: $'''''' @subject: $'''MFG分析データ取得　実行結果''' @body: MailBody @filePath: $'''''' @sender: $''''''
+Variables.IncreaseVariable Value: LoopIndex IncrementValue: 1
+IF LoopIndex > 2 THEN
+    GOTO EndProcess
+ELSE
+    GOTO MainProcess
+END
+LABEL EndProcess

@@ -1,0 +1,13 @@
+# 指定のパス配下に保存されている全ファイルを削除する。
+# ファイル操作関係の変数の宣言。
+SET C_TempFilePath TO $'''C:\\RPA\\売上予算実績対比表'''
+Folder.GetFiles Folder: C_TempFilePath FileFilter: $'''*''' IncludeSubfolders: False FailOnAccessDenied: True SortBy1: Folder.SortBy.NoSort SortDescending1: False SortBy2: Folder.SortBy.NoSort SortDescending2: False SortBy3: Folder.SortBy.NoSort SortDescending3: False Files=> Files
+LOOP FOREACH File IN Files
+    File.Delete Files: File
+        ON ERROR
+            SET C_ErrorText TO $'''ファイルの削除に失敗しました。ファイル=%File%'''
+            GOTO ExceptionError
+        END
+END
+LABEL ExceptionError
+EXIT FUNCTION
